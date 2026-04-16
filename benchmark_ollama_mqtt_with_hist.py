@@ -22,7 +22,7 @@ PROMPT_TEXT = "turn led on"
 #PROMPT_TEXT = "parpadea 1 vez con 50 ms encendido y 50 ms apagado"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 TIMEOUT_S = 120
-N_RUNS = 1000
+N_RUNS = 100
 WARMUP_RUNS = 10
 
 
@@ -232,9 +232,10 @@ def benchmark():
     run_dir = os.path.join(OUT_DIR, f"bench_{ts}_{model_tag}_{prompt_tag}_mqtt")
     os.makedirs(run_dir, exist_ok=True)
 
-    csv_path  = os.path.join(run_dir, f"bench_{ts}.csv")
-    png_path  = os.path.join(run_dir, f"bench_{ts}.png")
-    meta_path = os.path.join(run_dir, "meta.json")
+    csv_path       = os.path.join(run_dir, f"bench_{ts}.csv")
+    png_path       = os.path.join(run_dir, f"bench_{ts}.png")
+    hist_png_path  = os.path.join(run_dir, f"bench_{ts}_hist.png")
+    meta_path      = os.path.join(run_dir, "meta.json")
 
     sender = None
     if SEND_MQTT:
@@ -366,7 +367,23 @@ def benchmark():
     plt.savefig(png_path, dpi=150)
     plt.close()
 
+    # Segunda gráfica: histograma de latencias
+    plt.figure()
+    plt.hist(ms, bins=50)
+    plt.axvline(mu, linestyle="--", linewidth=1, label=f"mean = {mu:.2f} ms")
+
     med = median(ms)
+    plt.axvline(med, linestyle=":", linewidth=1, label=f"median = {med:.2f} ms")
+
+    plt.title(f"Latency histogram (model={MODEL})\nPrompt: {prompt_short}{tok_str}")
+    plt.xlabel("Time (ms)")
+    plt.ylabel("Frequency")
+    plt.grid(True)
+    plt.legend(loc="best")
+    plt.tight_layout()
+    plt.savefig(hist_png_path, dpi=150)
+    plt.close()
+
     p95 = sorted(ms)[int(0.95 * (len(ms) - 1))]
     ok_rate = sum(r["parse_ok"] for r in rows) / len(rows) * 100.0
 
@@ -384,6 +401,7 @@ def benchmark():
         print(f"Tokens (median): in={in_tok_med} out={out_tok_med}")
     print(f"CSV: {csv_path}")
     print(f"PNG: {png_path}")
+    print(f"HIST PNG: {hist_png_path}")
 
 if __name__ == "__main__":
     benchmark()
